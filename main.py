@@ -4,6 +4,7 @@ import logging
 from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+import sys
 
 from app.core.config import origins
 from app.database import SessionLocal
@@ -32,7 +33,7 @@ async def lifespan(app: FastAPI):
     logger.info("Application démarre : exécution des migrations Alembic...")
     try:
         subprocess.run(
-            ["alembic", "upgrade", "head"],
+            [sys.executable, "-m", "alembic", "upgrade", "head"],
             capture_output=True,
             text=True,
             check=True
