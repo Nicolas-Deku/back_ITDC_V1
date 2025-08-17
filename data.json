@@ -1,0 +1,32 @@
+[
+    {
+        "user_info": {
+            "lastName": "RAKOTO",
+            "firstName": "Tahina",
+            "userEmail": "ta@gmail.com",
+            "position": "RH",
+            "employeeId": "001"
+        },
+        "company_info": {
+            "companyName": "ITDC Mada",
+            "companyContactEmail": "itdcmada@gmail.com"
+        },
+        "role": "admin",
+        "password": "password123"
+    },
+    {
+        "user_info": {
+            "lastName": "TE",
+            "firstName": "test",
+            "userEmail": "t@gmail.com",
+            "position": "Developpeur",
+            "employeeId": "002"
+        },
+        "company_info": {
+            "companyName": "ITDC Mada",
+            "companyContactEmail": "itdcmada@gmail.com"
+        },
+        "role": "admin",
+        "password": "password123"
+    }
+]
