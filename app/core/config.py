@@ -23,11 +23,12 @@ EMAIL_USERNAME = os.getenv("EMAIL_USERNAME", "default_sender@example.com")
 EMAIL_PASSWORD = os.getenv("EMAIL_PASSWORD", "default_password")
 
 # Configuration de la base de données PostgreSQL ---
-DB_USER = os.getenv("DB_USER", "biotrack_user")
-DB_PASSWORD = os.getenv("DB_PASSWORD", "votre_mot_de_passe_secure")
-DB_HOST = os.getenv("DB_HOST", "localhost")
-DB_PORT = os.getenv("DB_PORT", "5432")
-DB_NAME = os.getenv("DB_NAME", "biotrack_db")
-
-# Chaîne de connexion à la base de données (format SQLAlchemy)
-DATABASE_URL = f"postgresql://{DB_USER}:{DB_PASSWORD}@{DB_HOST}:{DB_PORT}/{DB_NAME}"
+DATABASE_URL = os.getenv("DATABASE_URL")
+if not DATABASE_URL:
+    # Sinon construire la chaîne à partir des composants
+    DB_USER = os.getenv("DB_USER", "biotrack_user")
+    DB_PASSWORD = os.getenv("DB_PASSWORD", "votre_mot_de_passe_secure")
+    DB_HOST = os.getenv("DB_HOST", "localhost")
+    DB_PORT = os.getenv("DB_PORT", "5432")
+    DB_NAME = os.getenv("DB_NAME", "biotrack_db")
+    DATABASE_URL = f"postgresql://{DB_USER}:{DB_PASSWORD}@{DB_HOST}:{DB_PORT}/{DB_NAME}"
