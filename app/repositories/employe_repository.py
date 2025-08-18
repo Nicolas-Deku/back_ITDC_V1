@@ -1,10 +1,12 @@
-from sqlalchemy.orm import Session, joinedload
+from sqlalchemy.orm import Session
 from sqlalchemy.exc import IntegrityError
 from typing import Optional, Dict, List
 from uuid import UUID, uuid4
 from datetime import datetime, timedelta, timezone
 import json
 import logging
+from sqlalchemy.orm import joinedload
+from sqlalchemy.sql import exists
 
 from app.models import (
     EmployeDB,
@@ -26,9 +28,6 @@ class EmployeRepository:
 
     def get_employe_by_email(self, email: str) -> Optional[EmployeDB]:
         try:
-            if not email:
-                logger.error("Email est None ou vide dans get_employe_by_email()")
-                return None
             return self.db.query(EmployeDB).filter(EmployeDB.email == email.lower()).first()
         except Exception as e:
             logger.error(f"Erreur lors de la récupération de l'employé par email {email}: {e}")
@@ -36,9 +35,6 @@ class EmployeRepository:
 
     def get_employe_by_employee_id(self, employee_id: str) -> Optional[EmployeDB]:
         try:
-            if not employee_id:
-                logger.error("employee_id est None ou vide dans get_employe_by_employee_id()")
-                return None
             return self.db.query(EmployeDB).filter(EmployeDB.employeeId == employee_id).first()
         except Exception as e:
             logger.error(f"Erreur lors de la récupération de l'employé par employeeId {employee_id}: {e}")
@@ -46,9 +42,6 @@ class EmployeRepository:
 
     def get_employe_by_id(self, id_employe: UUID) -> Optional[EmployeDB]:
         try:
-            if not id_employe:
-                logger.error("id_employe est None dans get_employe_by_id()")
-                return None
             return self.db.query(EmployeDB).filter(EmployeDB.idEmploye == id_employe).first()
         except Exception as e:
             logger.error(f"Erreur lors de la récupération de l'employé par ID {id_employe}: {e}")
@@ -56,24 +49,17 @@ class EmployeRepository:
 
     def get_groupe_by_id(self, id_groupe: UUID) -> Optional[GroupeDB]:
         try:
-            if not id_groupe:
-                logger.error("id_groupe est None dans get_groupe_by_id()")
-                return None
             return self.db.query(GroupeDB).filter(GroupeDB.idGroupe == id_groupe).first()
         except Exception as e:
             logger.error(f"Erreur lors de la récupération du groupe par ID {id_groupe}: {e}")
             raise
-
     def get_poste_by_id(self, id_poste: UUID) -> Optional[PosteDB]:
         try:
-            if not id_poste:
-                logger.error("id_poste est None dans get_poste_by_id()")
-                return None
             return self.db.query(PosteDB).filter(PosteDB.idPoste == id_poste).first()
         except Exception as e:
             logger.error(f"Erreur lors de la récupération du poste par ID {id_poste}: {e}")
             raise
-
+        
     def create_employe(self, employe: EmployeDB) -> EmployeDB:
         try:
             self.db.add(employe)
@@ -119,20 +105,14 @@ class EmployeRepository:
 
     def add_pending_registration(self, user_email: str, personal_info: Dict, expires_at: datetime):
         try:
-            if not user_email:
-                logger.error("user_email est None ou vide dans add_pending_registration()")
-                raise ValueError("user_email obligatoire.")
-            user_email_lower = user_email.lower()
-            existing = self.db.query(PendingRegistrationDB).filter(
-                PendingRegistrationDB.user_email == user_email_lower
-            ).first()
+            existing = self.db.query(PendingRegistrationDB).filter(PendingRegistrationDB.user_email == user_email.lower()).first()
             if existing:
                 existing.personal_info_json = json.dumps(personal_info)
                 existing.expires_at = expires_at
             else:
                 new_pending = PendingRegistrationDB(
                     id=uuid4(),
-                    user_email=user_email_lower,
+                    user_email=user_email.lower(),
                     personal_info_json=json.dumps(personal_info),
                     expires_at=expires_at
                 )
@@ -145,13 +125,8 @@ class EmployeRepository:
 
     def get_pending_registration(self, user_email: str) -> Optional[Dict]:
         try:
-            if not user_email:
-                logger.error("user_email est None ou vide dans get_pending_registration()")
-                return None
             now = datetime.utcnow().replace(tzinfo=timezone.utc)
-            pending = self.db.query(PendingRegistrationDB).filter(
-                PendingRegistrationDB.user_email == user_email.lower()
-            ).first()
+            pending = self.db.query(PendingRegistrationDB).filter(PendingRegistrationDB.user_email == user_email.lower()).first()
             if pending and pending.expires_at > now:
                 return {
                     "personal_info_json": json.loads(pending.personal_info_json) if pending.personal_info_json else None,
@@ -166,12 +141,7 @@ class EmployeRepository:
 
     def update_pending_registration(self, user_email: str, key: str, value):
         try:
-            if not user_email:
-                logger.error("user_email est None ou vide dans update_pending_registration()")
-                raise ValueError("user_email obligatoire.")
-            pending = self.db.query(PendingRegistrationDB).filter(
-                PendingRegistrationDB.user_email == user_email.lower()
-            ).first()
+            pending = self.db.query(PendingRegistrationDB).filter(PendingRegistrationDB.user_email == user_email.lower()).first()
             if not pending:
                 raise ValueError(f"Aucune registration en attente pour {user_email}")
             if key == "personal_info":
@@ -188,12 +158,7 @@ class EmployeRepository:
 
     def delete_pending_registration(self, user_email: str):
         try:
-            if not user_email:
-                logger.error("user_email est None ou vide dans delete_pending_registration()")
-                raise ValueError("user_email obligatoire.")
-            self.db.query(PendingRegistrationDB).filter(
-                PendingRegistrationDB.user_email == user_email.lower()
-            ).delete()
+            self.db.query(PendingRegistrationDB).filter(PendingRegistrationDB.user_email == user_email.lower()).delete()
             self.db.commit()
         except Exception as e:
             self.db.rollback()
@@ -202,14 +167,9 @@ class EmployeRepository:
 
     def set_verification_code(self, email: str, code: str, expires_in_minutes: int):
         try:
-            if not email:
-                logger.error("email est None ou vide dans set_verification_code()")
-                raise ValueError("email obligatoire.")
             expires_at = datetime.utcnow().replace(tzinfo=timezone.utc) + timedelta(minutes=expires_in_minutes)
             identifier = email.lower()
-            existing_code = self.db.query(VerificationCodeDB).filter(
-                VerificationCodeDB.identifier == identifier
-            ).first()
+            existing_code = self.db.query(VerificationCodeDB).filter(VerificationCodeDB.identifier == identifier).first()
             if existing_code:
                 existing_code.code = code
                 existing_code.expires_at = expires_at
@@ -225,13 +185,8 @@ class EmployeRepository:
 
     def get_verification_code(self, email: str) -> Optional[str]:
         try:
-            if not email:
-                logger.error("email est None ou vide dans get_verification_code()")
-                return None
             now = datetime.utcnow().replace(tzinfo=timezone.utc)
-            code_entry = self.db.query(VerificationCodeDB).filter(
-                VerificationCodeDB.identifier == email.lower()
-            ).first()
+            code_entry = self.db.query(VerificationCodeDB).filter(VerificationCodeDB.identifier == email.lower()).first()
             if code_entry and code_entry.expires_at > now:
                 return code_entry.code
             return None
@@ -241,12 +196,7 @@ class EmployeRepository:
 
     def delete_verification_code(self, email: str):
         try:
-            if not email:
-                logger.error("email est None ou vide dans delete_verification_code()")
-                raise ValueError("email obligatoire.")
-            self.db.query(VerificationCodeDB).filter(
-                VerificationCodeDB.identifier == email.lower()
-            ).delete()
+            self.db.query(VerificationCodeDB).filter(VerificationCodeDB.identifier == email.lower()).delete()
             self.db.commit()
         except Exception as e:
             self.db.rollback()
@@ -255,19 +205,17 @@ class EmployeRepository:
 
     def get_employes_by_entreprise(self, idEntreprise: UUID, skip: int = 0, limit: int = 100) -> List[EmployeDB]:
         try:
-            if not idEntreprise:
-                logger.error("idEntreprise est None dans get_employes_by_entreprise()")
-                return []
             return (
                 self.db.query(EmployeDB)
-                    .filter(EmployeDB.idEntreprise == idEntreprise)
-                    .offset(skip)
-                    .limit(limit)
-                    .all()
+                .filter(EmployeDB.idEntreprise == idEntreprise)
+                .offset(skip)
+                .limit(limit)
+                .all()
             )
         except Exception as e:
+            # log error or raise
             raise
-
+    
     def cleanup_expired_entries(self):
         try:
             now = datetime.utcnow().replace(tzinfo=timezone.utc)
@@ -279,27 +227,34 @@ class EmployeRepository:
             self.db.rollback()
             logger.error(f"Erreur lors du nettoyage des entrées expirées: {e}")
             raise
-
+    
     def get_employe_by_phone_number(self, phone_number: str) -> Optional[EmployeDB]:
+        """
+        Retourne l'employé ayant ce numéro de téléphone, ou None s'il n'existe pas.
+        """
         try:
-            if not phone_number:
-                logger.error("phone_number est None ou vide dans get_employe_by_phone_number()")
-                return None
             return self.db.query(EmployeDB).filter(EmployeDB.phone_number == phone_number).first()
         except Exception as e:
             logger.error(f"Erreur lors de la récupération de l'employé par numéro de téléphone {phone_number}: {e}")
             raise
 
     def get_employees_without_fingerprint(self, idEntreprise: UUID) -> List[EmployeDB]:
+        """
+        Renvoie tous les employés d'une entreprise qui n'ont pas encore
+        d'empreinte digitale enregistrée.
+        """
+        # Sous‑requête EXISTS : il existe une empreinte liée à cet employé
         empreinte_exists = (
             self.db.query(EmpreinteDB.idEmpreinte)
-                .filter(EmpreinteDB.idEmploye == EmployeDB.idEmploye)
-                .exists()
+            .filter(EmpreinteDB.idEmploye == EmployeDB.idEmploye)
+            .exists()
         )
+
+        # Requête principale : employés dont AUCUNE empreinte n'existe
         return (
             self.db.query(EmployeDB)
-                .filter(EmployeDB.idEntreprise == idEntreprise)
-                .filter(~empreinte_exists)  # NOT EXISTS(...)
-                .options(joinedload(EmployeDB.groupe))
-                .all()
+            .filter(EmployeDB.idEntreprise == idEntreprise)
+            .filter(~empreinte_exists)  # NOT EXISTS(...)
+            .options(joinedload(EmployeDB.groupe))  # précharger le groupe
+            .all()
         )
